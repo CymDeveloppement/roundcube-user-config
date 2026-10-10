@@ -5,6 +5,17 @@ This plugin allows to specify configuration settings such as IMAP/SMTP
 servers, active plugins, etc. on a per-user level. The settings are read
 from a static text file matching the login username.
 
+This is an update of the [original plugin](https://gitlab.com/kolab-roundcube-plugins/ude-login)
+by Kolab Systems (last release 2015) for Roundcube 1.6+ and PHP 8:
+
+* option names renamed in Roundcube 1.6 (`imap_host`, `smtp_host`), the old
+  names (`default_host`, `smtp_server`) are still accepted in the users file
+* works with Dovecot master user logins (`user@domain*master`), e.g. with
+  the [roundcube_new_oidc](https://github.com/CymDeveloppement/roundcube-new-oidc) plugin
+* an entry for the user wins over an entry for its `@domain`
+* no stale settings from a previous login attempt in the same session
+* settings also override the config files of other plugins (e.g. `managesieve_host`)
+
 The plugin also offers a way to disable some plugins for certain users.
 Since unloading plugins isn't supported by Roundcube itself, this can only
 be achieved by letting the `ude_login` plugin load those plugins which
@@ -16,23 +27,47 @@ The user settings file is a tab-separated text file with the following
 schema:
 
 ```
-username1<tab>default_host=imap1.domain.tld<tab>smtp_server=smtp1.domain.tld<tab>enable_plugins=calendar<tab>disable_plugins=acl,managesieve
-username2<tab>default_host=imap2.domain.tld<tab>disable_plugins=acl
+# comment
+username1<tab>imap_host=ssl://imap1.domain.tld:993<tab>smtp_host=tls://smtp1.domain.tld:587<tab>enable_plugins=calendar<tab>disable_plugins=acl,managesieve
+user2@domain.tld<tab>imap_host=ssl://imap2.domain.tld:1993<tab>smtp_host=ssl://smtp2.domain.tld:2465
+@other.tld<tab>imap_host=tls://imap.other.tld:143<tab>disable_plugins=acl
 ```
 
-The first column identifies the login username. Following columns contain
-any number of `<key>=<value>` pairs, their order is not relevant. `<key>` can
-correspond to any valid Roundcube config option which is overridden with
-the given value. The following special keys are handled separately:
+The first column identifies the login username (case-insensitive), or a whole
+mail domain when it starts with `@`. An entry for the username wins over an
+entry for its domain. Empty lines and lines starting with `#` are ignored.
+
+Following columns contain any number of `<key>=<value>` pairs, their order is
+not relevant. `<key>` can correspond to any valid Roundcube config option
+which is overridden with the given value. `true` and `false` are converted to
+booleans, other values are kept as strings. Ports are given in the host value
+(`ssl://host:port`), as in the Roundcube config.
+
+`imap_host` is the server the user logs in to: it is applied at login, the
+other options for the whole session. The following special keys are handled
+separately:
 
 * enable\_plugins: a comma-separated list of plugins to load for this user
-* disabled\_plugins: a comma-separated list of plugins to disable for this user
+* disable\_plugins: a comma-separated list of plugins to disable for this user
 
 Note 1: enable\_plugins only needs to list plugins which are not part of the
 standard set defined in the `plugins` and `ude_default_plugins` options.
 
-Note 2: disabled\_plugins can only disable plugins which are loaded through
+Note 2: disable\_plugins can only disable plugins which are loaded through
 this plugin, namely those listed in the `ude_default_plugins` option.
+
+Note 3: the user keeps the credentials of the login on the other servers:
+with a Dovecot master user, the other IMAP server must accept the same
+master user and password. Unless `smtp_user` and `smtp_pass` are set, the
+SMTP server gets the same credentials too (`%u` and `%p`): with
+roundcube_new_oidc, the password sent by the OIDC provider.
+
+
+Requirements
+------------
+
+* Roundcube 1.6 or later
+* PHP 8.0 or later
 
 
 Installation
@@ -52,6 +87,7 @@ Configuration Options
 
 * An absolute path to the static text file providing the individual settings
   for the authenticated users. Defaults to 'plugins/ude\_login/users.txt'.
+  Keep this file out of the web root if it contains passwords.
 
   `$config['ude_login_db'] = '/path/to/user_settings_db.txt';`
 
@@ -65,7 +101,14 @@ Configuration Options
   be added to the regular `plugins` list in Roundcube's config but shall be
   listed here. They'll then be loaded by the ude\_login plugin.
 
-  `$config['ude_default_plugins'] = array('acl', 'managesieve');`
+  `$config['ude_default_plugins'] = ['acl', 'managesieve'];`
+
+* Separator of Dovecot master user logins (`user@domain*master`): the part
+  after it is removed before looking up the user. Defaults to the
+  `oidc_master_user_separator` option of roundcube_new_oidc when its
+  `oidc_config_master_user` option is set.
+
+  `$config['ude_login_master_separator'] = '*';`
 
 
 License

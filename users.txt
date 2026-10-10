@@ -1,2 +1,4 @@
-sampleuser	default_host=localhost	smtp_server=localhost	enable_plugins=acl,managesieve,zipdownload	disable_plugins=calendar
-anotheruser	default_host=example.net	smtp_server=mail.example.net	enable_plugins=acl
+# One line per user (or per @domain), fields separated by tabs
+sampleuser	imap_host=localhost	smtp_host=localhost	enable_plugins=acl,managesieve,zipdownload	disable_plugins=calendar
+anotheruser@example.net	imap_host=ssl://imap.example.net:1993	smtp_host=ssl://smtp.example.net:2465	enable_plugins=acl
+@example.org	imap_host=tls://mail.example.org:143	smtp_host=tls://mail.example.org:587
