@@ -1,14 +1,17 @@
 <?php
 
 /**
- * University Duisburg-Essen User Login Plugin
+ * Roundcube User Config
  *
  * Allows to specify configuration settings such as IMAP/SMTP servers, active plugins, etc.
  * on a per-user level. The settings are read from a static text file with the login username
  * being stated in the first column.
  *
+ * Based on the ude_login plugin (University Duisburg-Essen User Login)
+ * by Kolab Systems: https://gitlab.com/kolab-roundcube-plugins/ude-login
+ *
  * @author Thomas Bruederli <bruederli@kolabsys.com>
- * @author Yann Challet (CymDeveloppement), update for Roundcube 1.6+
+ * @author Yann Challet (CymDeveloppement)
  * @license GNU GPLv3+
  *
  * Copyright (C) 2014, Kolab Systems AG <contact@kolabsys.com>
@@ -27,7 +30,7 @@
  * along with this program. If not, see http://www.gnu.org/licenses/.
  */
 
-class ude_login extends rcube_plugin
+class roundcube_user_config extends rcube_plugin
 {
     /** Options renamed in Roundcube 1.6, still accepted in the users file (old name => new name) */
     private const LEGACY_PROPS = [
@@ -37,6 +40,14 @@ class ude_login extends rcube_plugin
 
     /** Options given as a comma-separated list in the users file */
     private const LIST_PROPS = ['enable_plugins', 'disable_plugins'];
+
+    /** Options of this plugin, with their name in ude_login */
+    private const UDE_OPTIONS = [
+        'user_config_db' => 'ude_login_db',
+        'user_config_use_grep' => 'ude_use_grep',
+        'user_config_default_plugins' => 'ude_default_plugins',
+        'user_config_master_separator' => 'ude_login_master_separator',
+    ];
 
     private $userconfig = [];
 
@@ -59,11 +70,11 @@ class ude_login extends rcube_plugin
         $rcmail = rcube::get_instance();
 
         // set at login, also for users without an entry in the file
-        if (!isset($_SESSION['ude_config']) || !is_array($_SESSION['ude_config']) || $rcmail->task == 'logout') {
+        if (!isset($_SESSION['user_config']) || !is_array($_SESSION['user_config']) || $rcmail->task == 'logout') {
             return;
         }
 
-        $this->userconfig = $_SESSION['ude_config'];
+        $this->userconfig = $_SESSION['user_config'];
 
         // apply user-specific settings to config, immutable so that they
         // survive the config files of plugins loaded afterwards
@@ -74,7 +85,7 @@ class ude_login extends rcube_plugin
         }
 
         // get the list of default plugins to be loaded for each user
-        $user_plugins = (array) $rcmail->config->get('ude_default_plugins', []);
+        $user_plugins = (array) $this->_option('user_config_default_plugins', []);
 
         // enable plugins
         if (!empty($this->userconfig['enable_plugins'])) {
@@ -128,7 +139,7 @@ class ude_login extends rcube_plugin
 
         // remember config in session to avoid file access on every request,
         // and replace the config of a previous login attempt
-        $_SESSION['ude_config'] = $userconfig ?: [];
+        $_SESSION['user_config'] = $userconfig ?: [];
 
         return $args;
     }
@@ -142,7 +153,7 @@ class ude_login extends rcube_plugin
     {
         $rcmail = rcube::get_instance();
 
-        $fn = $dbfile = $rcmail->config->get('ude_login_db', 'users.txt');
+        $fn = $dbfile = $this->_option('user_config_db', 'users.txt');
         if ($fn[0] != '/') {
             $fn = realpath($dbfile = (__DIR__ . '/' . $fn));
         }
@@ -153,7 +164,7 @@ class ude_login extends rcube_plugin
                 'type' => 'php',
                 'file' => __FILE__,
                 'line' => __LINE__,
-                'message' => "ude_login plugin warning: failed to open login db file '$dbfile'"], true);
+                'message' => "roundcube_user_config plugin warning: failed to open users file '$dbfile'"], true);
             return [];
         }
 
@@ -172,7 +183,7 @@ class ude_login extends rcube_plugin
         $domain = $pos !== false ? mb_strtolower(substr($username_full, $pos)) : null;
 
         // pre-filter the user database file using 'grep'
-        if ($rcmail->config->get('ude_use_grep', false)) {
+        if ($this->_option('user_config_use_grep', false)) {
             $patterns = '';
             foreach (array_filter(array_merge($users, [$domain])) as $pattern) {
                 $patterns .= ' -e ' . escapeshellarg($pattern);
@@ -239,7 +250,7 @@ class ude_login extends rcube_plugin
     {
         $rcmail = rcube::get_instance();
 
-        $separator = $rcmail->config->get('ude_login_master_separator');
+        $separator = $this->_option('user_config_master_separator');
         if ($separator === null && strlen((string) $rcmail->config->get('oidc_config_master_user'))) {
             $separator = $rcmail->config->get('oidc_master_user_separator');
         }
@@ -249,5 +260,15 @@ class ude_login extends rcube_plugin
         }
 
         return $username;
+    }
+
+    /**
+     * Get an option of this plugin, falling back to its ude_login name
+     */
+    private function _option($name, $default = null)
+    {
+        $config = rcube::get_instance()->config;
+
+        return $config->get($name, $config->get(self::UDE_OPTIONS[$name], $default));
     }
 }

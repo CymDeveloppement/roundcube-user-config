@@ -1,9 +1,13 @@
 {
-    "name": "cymdeveloppement/ude-login",
+    "name": "cymdeveloppement/roundcube-user-config",
     "type": "roundcube-plugin",
     "description": "Allows to specify configuration settings such as IMAP/SMTP servers, active plugins, etc. on a per-user level using a static text file.",
     "keywords": ["roundcube", "roundcube-plugin", "authentication", "settings", "imap", "smtp"],
-    "homepage": "https://github.com/CymDeveloppement/roundcube-ude-login",
+    "homepage": "https://github.com/CymDeveloppement/roundcube-user-config",
+    "support": {
+        "issues": "https://github.com/CymDeveloppement/roundcube-user-config/issues",
+        "source": "https://github.com/CymDeveloppement/roundcube-user-config"
+    },
     "license": "GPL-3.0-or-later",
     "authors": [
         {
